@@ -1,0 +1,584 @@
+---
+title: "**The Parisian Rental Market**"
+author: "SIRLONGE Valentin"
+output: html_document 
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Load libraries
+library(dplyr)
+library(ggplot2)
+library(leaflet)
+library(knitr)
+library(kableExtra)
+library(tidyr)
+```
+
+```{r load data, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+# Load Cleaned Data
+data_clean <- read.csv("data_cleaned_lodgement_paris.csv", stringsAsFactors = FALSE)
+```
+
+
+
+
+# {.tabset}
+## <span style="color: black;">Presentation</span>
+
+<!--Titles-->
+<style>
+.title-main {
+  font-size: 20px; 
+  font-weight: bold; 
+  margin-bottom: 20px; 
+  color: red; }
+  
+.title-sub {
+  font-size: 17px; 
+  font-weight: bold; 
+  margin-bottom: 15px; 
+  color: black; }
+</style>
+
+<p class="title-main">Introduction</p>
+Housing affordability and rental regulations are key topics in urban development and policy-making. In cities like Paris, where space is limited, and demand for housing is high, understanding rental trends is crucial for both tenants and policymakers. This report focuses on analyzing **rental data from Paris**, aiming to uncover patterns in reference rents, rental types, and construction periods.
+
+Using advanced data analysis techniques and interactive visualizations, this study highlights how rents vary across neighborhoods, room types, and building characteristics. By leveraging insights from this analysis, stakeholders can better understand the dynamics of the Parisian rental market.
+\
+\
+
+<center> 
+<img src="https://lemarcheimmo.com/wp-content/uploads/2021/06/1505851175fa41f90648b01.33757569_1920.jpg" width="600">
+</center>
+\
+\
+
+<p class="title-main">Presentation of the Database</p>
+The dataset used in this analysis, titled **"Encadrement des Loyers à Paris"**, provides detailed information on rental regulations and reference rents across different neighborhoods of Paris. This data was sourced from open government databases and covers essential aspects of the rental market, such as room counts, construction periods, and rent types.
+\
+\
+
+<p class="title-sub">Key Information:</p>
+- **Year**: The year of reference for the rent data.
+- **Quarter**: The geographic area in Paris where the data is applicable.
+- **District**: The arrondissement in Paris to which the geographic area belongs.
+- **Construction Period**: The period when the building was constructed.
+- **Rental Type**: Whether the property is furnished or unfurnished.
+- **Reference Rent (€ / m²)**: The baseline rent per square meter set by regulations.
+- **High Reference Rent (€ / m²)**: The maximum allowable rent under regulation.
+- **Low Reference Rent (€ / m²)**: The minimum allowable rent under regulation.
+- **Location (Latitude and Longitude)**: Geographic coordinates of the neighborhood.
+\
+\
+
+Below is an interactive table showcasing the first few rows of the dataset:
+\
+
+```{r interactive_table, echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+library(DT)
+
+datatable(
+  head(data_clean, 20), 
+  options = list(pageLength = 5, scrollX = TRUE), 
+  caption = "Sample of the Paris Rental Dataset")
+```
+
+
+
+
+## <span style="color: black;">Data Insights</span>
+
+<p class="title-main">Part 1: Statistics on Year</p>
+<p class="title-sub">Average rent per year</p>
+```{r Stat 1, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Calculation of average rent per year
+average_rent_year <- data_clean %>%
+  group_by(Year) %>%
+  summarise(Average_Reference_Rent = mean(Reference_Rent, na.rm = TRUE))%>%
+  mutate(Average_Reference_Rent = round(Average_Reference_Rent, 2))
+
+# Table
+kable(average_rent_year, col.names = c("Year", "Average rent (€ / m²)")) %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = c("striped", "hover")) %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2")%>%
+  column_spec(2, extra_css = "text-align: center;")
+```
+\
+
+The table shows a progressive increase in average rents in Paris between 2019 and 2024, rising from **25.39 €/m²** to **27.10 €/m²**, representing a total increase of **6.7%**. This trend reflects a steady growth, with an average annual increase of **0.34 €/m²**. However, there is a more pronounced acceleration between **2023 and 2024**, where the average rent increased by **0.58 €/m²**, which could indicate a rise in demand or other economic pressures. This evolution may have significant implications for tenants, particularly in terms of housing affordability, especially in a market as competitive as Paris. 
+\
+\
+\
+
+<p class="title-sub">Minimum and maximum rents per year</p>
+```{r Stat 2, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Calculation of minimum and maximum rents per year
+min_max_rent_year <- data_clean %>%
+  group_by(Year) %>%
+  summarise(Min_Reference_Rent = formatC(min(Reference_Rent, na.rm = TRUE), format = "f", digits = 2),
+            Max_Reference_Rent = formatC(max(Reference_Rent, na.rm = TRUE), format = "f", digits = 2))
+
+# Table
+kable(min_max_rent_year, col.names = c("Year", "Minimum rent (€ / m²)", "Maximum rent (€ / m²)")) %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = c("striped", "hover")) %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2") %>%
+  column_spec(2, extra_css = "text-align: center;") %>%
+  column_spec(3, extra_css = "text-align: center;")
+```
+\
+
+The table highlights the **minimum and maximum rents per year** from 2019 to 2024 in Paris. While the maximum rent shows a slight increase from **39.30 €/m² in 2019** to **40.70 €/m² in 2024**, the minimum rent remains relatively stable, hovering around **14.60 €/m²** since 2020. This stability in minimum rents might suggest regulatory controls or limited changes in the lower-end rental market. The sharpest increase in maximum rents occurs between **2023 and 2024**, rising by **0.90 €/m²**, which may point to high-end properties driving the growth. This divergence between minimum and maximum rent trends could indicate increasing inequality in the rental market, with high-end properties becoming less affordable over time.
+\
+\
+\
+
+<p class="title-main">Part 2: Statistics on Rental Type</p> 
+<p class="title-sub">Average rent by rental type (2024)</p>
+```{r Stat 3, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Calculation of average rent by rental type for the year 2024
+average_rent_type <- data_clean %>%
+  filter(Year == 2024) %>%
+  group_by(Rental_Type) %>%
+  summarise(Average_Reference_Rent = round(mean(Reference_Rent, na.rm = TRUE), 2))
+
+# Table
+kable(average_rent_type, col.names = c("Rental Type", "Average rent (€ / m²)")) %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = c("striped", "hover")) %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2") %>%
+  column_spec(2, extra_css = "text-align: center;")
+```
+\
+
+The table illustrates the **average rent by rental type in 2024**, showing a clear difference between furnished and unfurnished properties. Furnished rentals have a significantly higher average rent of **28.87 €/m²**, compared to **25.33 €/m²** for unfurnished ones. This difference of **3.54 €/m²** reflects the added value or convenience associated with furnished properties, which often cater to short-term tenants or those seeking a fully-equipped living space. The data suggests that landlords of furnished properties can charge a premium due to increased demand or reduced tenant flexibility. This gap highlights the need for tenants to carefully consider their priorities when choosing between furnished and unfurnished options.
+\
+\
+\
+
+<p class="title-sub">Minimum and maximum rent by rental type (2024)</p>
+```{r Stat 4, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Calculation of minimum and maximum rents by rent type for the year 2024
+min_max_rent_type <- data_clean %>%
+  filter(Year == 2024) %>%
+  group_by(Rental_Type) %>%
+  summarise(Min_Reference_Rent = formatC(min(Reference_Rent, na.rm = TRUE), format = "f", digits = 2),
+            Max_Reference_Rent = formatC(max(Reference_Rent, na.rm = TRUE), format = "f", digits = 2))%>%
+  arrange(desc(as.numeric(Max_Reference_Rent)))
+
+# Table
+kable(min_max_rent_type, col.names = c("Rental Type", "Minimum rent (€ / m²)", "Maximum rent (€ / m²)")) %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = c("striped", "hover")) %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2") %>%
+  column_spec(2, extra_css = "text-align: center;") %>%
+  column_spec(3, extra_css = "text-align: center;")
+```
+\
+
+The table highlights clear differences between furnished and unfurnished rental properties in 2024. Furnished rentals have a significantly higher maximum rent of **40.70 €/m²** and a minimum rent of **16.60 €/m²**, reflecting their premium status due to added convenience and appeal for short-term or flexible tenants. In contrast, unfurnished rentals show lower minimum and maximum rents, at **14.60 €/m²** and **35.70 €/m²**, respectively, suggesting they are more accessible to long-term tenants or those willing to furnish the property themselves. The gap in maximum rents, with furnished properties costing **5 €/m² more**, underscores the increased demand and willingness to pay for fully-equipped housing options. This disparity indicates that rental type is a key determinant of pricing, with furnished properties catering to a different market segment than unfurnished ones.
+\
+\
+\
+
+
+<p class="title-main">Part 3: Statistics on District</p> 
+<p class="title-sub">Average rent by district (2024)</p>
+```{r Stat 5, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Calculation of average rent by district for the year 2024
+average_rent_district <- data_clean %>%
+  filter(Year == 2024) %>%
+  group_by(District) %>%
+  summarise(Average_Reference_Rent = round(mean(Reference_Rent, na.rm = TRUE), 2))%>%
+  arrange(desc(Average_Reference_Rent))
+
+# Table
+kable(average_rent_district, col.names = c("District", "Average rent (€ / m²)")) %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = c("striped", "hover")) %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2") %>%
+  column_spec(2, extra_css = "text-align: center;")
+```
+\
+
+The table reveals substantial variations in average rents across different districts in Paris for 2024. District **7** stands out with the highest average rent of **32.20 €/m²**, reflecting its prestigious status and prime location. This is followed by districts **6** and **8**, with average rents of **30.20 €/m²** and **29.48 €/m²**, respectively, further indicating their desirability and concentration of high-value properties. On the lower end, districts like **20** and **19** show significantly lower average rents at **23.13 €/m²** and **22.34 €/m²**, likely due to their more peripheral location and affordability. These disparities highlight the strong influence of location on rental pricing, with central and upscale districts commanding higher rents compared to more affordable areas in the outskirts.
+\
+\
+\
+
+<p class="title-sub">Minimum and maximum rents by district (2024)</p>
+```{r Stat 6, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Calculation of minimum and maximum rents by district for the year 2024
+min_max_rent_district <- data_clean %>%
+  filter(Year == 2024) %>%
+  group_by(District) %>%
+  summarise(Min_Reference_Rent = formatC(min(Reference_Rent, na.rm = TRUE), format = "f", digits = 2),
+            Max_Reference_Rent = formatC(max(Reference_Rent, na.rm = TRUE), format = "f", digits = 2))%>%
+  arrange(desc(as.numeric(Max_Reference_Rent)))
+
+# Table
+kable(min_max_rent_district, col.names = c("District", "Minimum rent (€ / m²)", "Maximum rent (€ / m²)")) %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = c("striped", "hover")) %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2") %>%
+  column_spec(2, extra_css = "text-align: center;") %>%
+  column_spec(3, extra_css = "text-align: center;")
+```
+\
+
+The table highlights significant disparities in minimum and maximum rents across Parisian districts in 2024. District **6** and **7** stand out with the highest maximum rent of **40.70 €/m²**, alongside minimum rents of **22.70 €/m²** and **25.70 €/m²**, respectively, emphasizing their desirability and premium status. In contrast, districts like **19**, **20**, and **18** are at the lower end of the spectrum, with minimum rents as low as **14.60 €/m²** and maximum rents reaching only **31.10 €/m²** or **33.70 €/m²**, making them more affordable options. Mid-range districts such as **10**, **14**, and **17** show relatively balanced rent ranges, with maximum rents around **35.50 €/m²** and minimum rents averaging **19.00 €/m²** to **19.80 €/m²**, catering to a wider demographic. This stark contrast underscores the strong influence of location, historical significance, and neighborhood amenities on rent pricing, with central and upscale districts commanding significantly higher rents than their more peripheral counterparts.
+\
+\
+\
+
+<p class="title-main">Part 4: Statistics on Quarter</p> 
+<p class="title-sub">Average rent by quarter (2024)</p>
+```{r Stat 7, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Calculation of average rent by quarter for the year 2024
+average_rent_quarter <- data_clean %>%
+  filter(Year == 2024) %>%
+  group_by(Quarter) %>%
+  summarise(Average_Reference_Rent = round(mean(Reference_Rent, na.rm = TRUE), 2))%>%
+  arrange(desc(Average_Reference_Rent))
+
+# Table
+kable(average_rent_quarter, col.names = c("Quarter", "Average rent (€ / m²)")) %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = c("striped", "hover")) %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2") %>%
+  column_spec(2, extra_css = "text-align: center;")
+```
+\
+
+The table reveals significant variations in average rents across different quarters in Paris for 2024. The quarters with the highest average rents, such as **Ecole-Militaire, Gros-Caillou, Invalides, Notre-Dame-des-Champs, and Saint-Thomas-d'Aquin**, all share an average rent of **32.20 €/m²**, highlighting their premium status likely due to prime locations or historical value. In contrast, quarters such as **Bel-Air, Bercy, Combat, and Père-Lachaise** feature some of the lowest rents at **23.48 €/m²**, reflecting their more affordable or less central characteristics. The lowest average rents are observed in quarters like **Amérique, Charonne, Gare, La Chapelle, Pont-de-Flandre, Saint-Fargeau, and Villette**, all at **21.95 €/m²**, suggesting potential opportunities for tenants seeking affordability. This disparity underscores the impact of location on rent pricing, with central and prestigious areas commanding higher rents while more peripheral or less sought-after neighborhoods remain relatively affordable.
+\
+\
+\
+
+<p class="title-sub">Minimum and maximum rents by quarter (2024)</p>
+```{r Stat 8, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Calculation of minimum and maximum rents by quarter for the year 2024
+min_max_rent_quarter <- data_clean %>%
+  filter(Year == 2024) %>%
+  group_by(Quarter) %>%
+  summarise(Min_Reference_Rent = formatC(min(Reference_Rent, na.rm = TRUE), format = "f", digits = 2),
+            Max_Reference_Rent = formatC(max(Reference_Rent, na.rm = TRUE), format = "f", digits = 2))%>%
+  arrange(desc(as.numeric(Max_Reference_Rent)))
+
+# Table
+kable(min_max_rent_quarter, col.names = c("Quarter", "Minimum rent (€ / m²)", "Maximum rent (€ / m²)")) %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = c("striped", "hover")) %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2") %>%
+  column_spec(2, extra_css = "text-align: center;") %>%
+  column_spec(3, extra_css = "text-align: center;")
+```
+\
+
+The table highlights significant disparities in both minimum and maximum rents across different quarters in Paris for 2024. Quarters such as **Ecole-Militaire, Gros-Caillou, Invalides, Notre-Dame-des-Champs, and Saint-Thomas-d’Aquin** stand out with the highest maximum rent of **40.70 €/m²**, while maintaining a relatively high minimum rent of **25.70 €/m²**, reflecting their premium location and desirability. In contrast, quarters like **Clignancourt, Grandes-Carrières, and Picpus** show much lower maximum rents at **31.90 €/m²** and minimum rents at **18.50 €/m²**, likely reflecting more affordable options or less central areas. At the lowest end, **Amérique, Charonne, Gare, La Chapelle, Pont-de-Flandre, Saint-Fargeau, and Villette** report the least expensive minimum rents of **14.60 €/m²**, with a modest maximum rent of **31.10 €/m²**, indicating affordable housing options. These variations underscore the strong influence of location and amenities on rental pricing, with the most exclusive quarters demanding significantly higher rents compared to more peripheral or less sought-after neighborhoods.
+\
+\
+\
+
+
+
+
+## <span style="color: black;">Data Visuals</span>
+
+<p class="title-main">Part 1: Rent Evolution Over Time</p>
+```{r V1, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Data Preparation
+avg_rent_year <- data_clean %>%
+  group_by(Year) %>%
+  summarise(Average_Reference_Rent = mean(Reference_Rent, na.rm = TRUE))
+
+# Visualization
+ggplot(avg_rent_year, aes(x = Year, y = Average_Reference_Rent)) +
+  geom_line(color = "steelblue", size = 1.2) +
+  geom_point(color = "darkblue", size = 3) +
+  labs(title = "Evolution of Average Reference Rent Over the Years",
+       x = "Year",
+       y = "Average Rent (€ / m²)") +
+  theme_minimal()
+```
+\
+\
+
+The graph illustrates a steady increase in average reference rent in Paris over the five-year period from **2019 to 2024**. Starting at **25.39 €/m²** in **2019**, the rent shows consistent annual growth, reaching **27.10 €/m²** in **2024**. The upward trend suggests an annual average increase of approximately **0.34 €/m²**, with a notable acceleration between **2023 and 2024**, where the rent increased by **0.58 €/m²**. This sharp rise may reflect external factors such as increased demand, economic pressures, or policy changes affecting the rental market. The graph visually highlights the sustained growth in housing costs, underscoring the challenges tenants might face in securing affordable accommodations in Paris.
+\
+\
+\
+
+<p class="title-main">Part 2: Furnished vs Unfurnished Rent Trends</p>
+```{r V2, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Data Preparation
+avg_rent_type <- data_clean %>%
+  group_by(Year, Rental_Type) %>%
+  summarise(Average_Reference_Rent = mean(Reference_Rent, na.rm = TRUE))
+
+# Visualization
+ggplot(avg_rent_type, aes(x = Year, y = Average_Reference_Rent, color = Rental_Type)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  facet_wrap(~Rental_Type, scales = "free") +
+  labs(title = "Evolution of Average Reference Rent for Furnished vs. Unfurnished Apartments",
+       x = "Year",
+       y = "Average Rent (€ / m²)",
+       color = "Rental Type") +
+  theme_minimal()
+```
+\
+\
+
+The **dual-line chart** compares the evolution of **average reference rents** for **furnished** and **unfurnished apartments** in Paris from **2019 to 2024**. It reveals that **furnished apartments consistently have higher rents** than their unfurnished counterparts, with the gap widening slightly over the years. By 2024, the average rent for furnished apartments reaches **€28.87/m²**, compared to **€25.33/m²** for unfurnished apartments. This trend might be driven by the added convenience and amenities associated with furnished properties, making them more desirable and thus more expensive. The steady increase in both categories also highlights the broader pressures in the Parisian rental market, emphasizing growing housing costs regardless of rental type.
+\
+\
+\
+
+<p class="title-main">Part 3: Rent by Number of Rooms in 2024</p>
+```{r V3, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Data Preparation
+rent_rooms_2024 <- data_clean %>%
+  filter(Year == 2024)
+
+# Visualization
+ggplot(rent_rooms_2024, aes(x = Rooms, y = Reference_Rent, color = Rental_Type)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  labs(title = "Relationship Between Number of Rooms and Reference Rent in 2024",
+       x = "Number of Rooms",
+       y = "Rent (€ / m²)",
+       color = "Rental Type") +
+  theme_minimal()
+```
+\
+\
+
+The **scatter plot** with a regression line illustrates the relationship between the **number of rooms** and the **reference rent per square meter** in 2024, segmented by **furnished** and **unfurnished apartments**. It shows a **negative correlation**, meaning that as the number of rooms increases, the rent per square meter generally decreases. This trend may reflect how larger apartments typically have a lower price per square meter due to economies of scale in housing. **Furnished apartments**, represented by red dots, consistently maintain a higher rent per square meter compared to **unfurnished apartments** (blue dots), reinforcing their premium cost. This analysis highlights the impact of apartment size and furnishing on rental pricing in Paris.
+\
+\
+\
+
+<p class="title-main">Part 4: Rent Disparities by Districts</p>
+```{r V4, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Data Preparation
+district_rent_2024 <- data_clean %>%
+  filter(Year == 2024) %>%
+  group_by(District) %>%
+  summarise(Max_Reference_Rent = max(Reference_Rent, na.rm = TRUE)) %>%
+  arrange(desc(Max_Reference_Rent)) %>%
+  head(10)
+
+# Visualization
+ggplot(district_rent_2024, aes(x = reorder(District, Max_Reference_Rent), y = Max_Reference_Rent, fill = District)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  labs(title = "Top 10 Districts by Maximum Reference Rent in 2024",
+       x = "District",
+       y = "Maximum Rent (€ / m²)") +
+  theme_minimal()
+```
+\
+\
+
+The **bar chart** highlights the **top 10 districts in Paris by maximum reference rent per square meter** for 2024. The **7th district** leads with the highest maximum rent, closely followed by the **6th district**, both exceeding **€40/m²**, indicating their premium market status. Other districts, such as the **9th, 8th, 4th, 2nd, and 1st**, also show competitive maximum rents, reflecting their central locations and demand. The rankings showcase the disparity in rent ceilings, emphasizing the exclusivity of certain neighborhoods within Paris. This analysis is essential for understanding high-end rental market dynamics in the city.
+\
+\
+\
+
+<p class="title-main">Part 5: Rent Trends by Construction Era</p>
+```{r V5, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Data Preparation
+construction_rent_min_max <- data_clean %>%
+  filter(Year == 2024) %>%
+  group_by(Construction_Period) %>%
+  summarise(Min_Rent = min(Reference_Rent, na.rm = TRUE),
+            Max_Rent = max(Reference_Rent, na.rm = TRUE)) %>%
+  pivot_longer(cols = c(Min_Rent, Max_Rent), names_to = "Rent_Type", values_to = "Rent") %>%
+  mutate(Construction_Period = factor(Construction_Period, levels = c("Before 1946", "1946-1970", "1971-1990", "After 1990"))) %>% 
+  ungroup()
+
+# Visualization
+ggplot(construction_rent_min_max, aes(x = Construction_Period, y = Rent, fill = Rent_Type)) +
+  geom_bar(stat = "identity", position = position_dodge(), color = "black") +
+  scale_fill_manual(values = c("Min_Rent" = "skyblue", "Max_Rent" = "orange")) +
+  theme_minimal() +
+  labs(title = "Distribution of Min/Max Reference Rent by Construction Period in 2024",
+       x = "Construction Period",
+       y = "Rent (€ / m²)",
+       fill = "Rent Type")
+```
+\
+\
+
+The **bar chart** compares the **minimum and maximum reference rent per square meter** across different construction periods in Paris for 2024. Properties built **before 1946** and **between 1946 and 1970** show the highest maximum rents, exceeding **€40/m²**, indicating their enduring value and central locations. Meanwhile, properties constructed **after 1990** have relatively lower maximum rents, likely due to their locations or modern competition. The **minimum rents**, while consistent across periods, demonstrate a clear disparity compared to the maximum rents, highlighting significant variability within each construction category. This analysis emphasizes the influence of historical construction on rental pricing in Paris.
+\
+\
+\
+
+
+
+
+## <span style="color: black;">Interactive Map</span> 
+```{r Map, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Calculate average rents by neighborhood for 2024
+average_rent_quarter <- data_clean %>%
+  filter(Year == 2024) %>%
+  group_by(Quarter) %>%
+  summarise(
+    Average_Reference_Rent = round(mean(Reference_Rent, na.rm = TRUE), 2),
+    Longitude = mean(Longitude, na.rm = TRUE), 
+    Latitude = mean(Latitude, na.rm = TRUE)) 
+
+# Create the interactive map with a marker per district
+leaflet(data = average_rent_quarter) %>%
+  addTiles() %>% 
+  addMarkers(
+    lng = ~Longitude,
+    lat = ~Latitude,
+    popup = ~paste0(
+      "<b>Quarter:</b> ", Quarter, "<br>",
+      "<b>Average Rent:</b> ", Average_Reference_Rent, " €/m²"))
+```
+\ 
+
+The interactive map provides a detailed spatial visualization of average rents across different quarters in Paris for 2024. By hovering over the pins, users can identify the specific quarter and its corresponding average rent, such as **Invalides** with the highest rent of **32.2 €/m²**. This visualization effectively highlights the distribution of rental costs, showing clusters of higher rents in central and historically significant areas like Invalides, while outer areas exhibit lower rents. The map enables easy comparison across neighborhoods and provides valuable insights for prospective tenants or investors looking to understand how rental prices vary geographically. This tool adds a dynamic and user-friendly dimension to the data analysis, making the findings more accessible and engaging.
+\
+\ 
+\  
+
+```{r message=FALSE, echo=FALSE,  warning=FALSE, results = "asis"}
+cat('<iframe width="560" height="315" 
+        src="https://www.youtube.com/embed/DZEv01cJuLI"  
+        data-external= "1">
+      </iframe>')
+```
+
+\
+
+The video provides a fascinating overview of the origins and evolution of Paris **20 arrondissements**, emphasizing their unique "snail-shaped" layout. Initially, Paris had only 12 arrondissements when they were created in **1795**, organized in two lines along the Seine. The city's expansion in **1860**, led by Haussmann, incorporated surrounding communes, resulting in the current spiral configuration. The video also highlights the cultural and social significance of the arrondissements. For example, districts in the **west** like the 16th symbolize wealth and exclusivity, while those in the **north and east** like the 18th, 19th, and 20th are more affordable and diverse, home to many immigrants. Interestingly, the video notes how the number **13** was deliberately assigned to a less affluent area due to its historical association with concubinage, showcasing the influence of social perceptions on urban planning. This engaging narrative deepens the viewer's appreciation for Paris's rich history and the cultural identity of its neighborhoods.    
+\
+\
+\ 
+
+
+
+
+## <span style="color: black;">Cost Analysis</span>
+
+<p class="title-main">The most affordable neighborhoods in Paris to buy</p>
+<p class="title-sub">Top 5 Most Affordable Districts in Paris (2024)</p>
+```{r T1, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Top 5 Most Affordable Districts
+most_affordable_districts <- data_clean %>%
+  filter(Year == 2024) %>%
+  group_by(District) %>%
+  summarise(Average_Reference_Rent = mean(Reference_Rent, na.rm = TRUE)) %>%
+  mutate(Average_Reference_Rent = round(Average_Reference_Rent, 2))%>%
+  arrange(Average_Reference_Rent) %>%
+  head(5)
+
+kable(most_affordable_districts, col.names = c("District", "Average Rent (€ / m²)")) %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = c("striped", "hover")) %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2") %>%
+  column_spec(2, extra_css = "text-align: center;")
+```
+\
+
+The table identifies the five most affordable districts in Paris for 2024 based on average rent prices.          District **19** ranks as the most affordable, with an average rent of **22.34 €/m²**, followed by district **20** at **23.13 €/m²**. Districts **18** and **12** show slightly higher average rents at **24.24 €/m²** and **24.26€/m²**, respectively, while district **13** rounds out the list with an average rent of **25.17 €/m²**. These districts likely offer more budget-friendly housing options due to their peripheral locations, larger residential areas, or fewer premium amenities compared to central Paris. This affordability makes them attractive to tenants seeking lower rental costs while maintaining proximity to the city’s core.
+\
+
+[Click here for more details](https://www.le-guide-immo.fr/actualites/arrondissements-moins-chers-de-paris/)
+\
+\
+
+<p class="title-sub">Top 10 Most Affordable Quarters in Paris (2024)</p>
+```{r T2, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Top 10 Most Affordable Quarters
+most_affordable_quarters <- data_clean %>%
+  filter(Year == 2024) %>%
+  group_by(Quarter, District) %>%
+  summarise(Average_Rent = round(mean(Reference_Rent, na.rm = TRUE), 2)) %>%
+  arrange(Average_Rent) %>%
+  head(10) 
+
+kable(most_affordable_quarters, col.names = c("Quarter", "District", "Average Rent (€ / m²)")) %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = c("striped", "hover")) %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2") %>%
+  column_spec(3, extra_css = "text-align: center;")
+```
+\
+
+The table lists the ten most affordable quarters in Paris for 2024, with all but three quarters sharing an average rent of **21.95 €/m²**, reflecting similar levels of affordability. Quarters like **Amérique, Charonne, Gare, La Chapelle, Pont-de-Flandre, Saint-Fargeau, and Villette** dominate the list, located in districts **19**, **20**, **13**, and **18**, highlighting their position in the more affordable areas of Paris. The slightly higher rents of **23.48 €/m²** in quarters like **Bel-Air, Bercy, and Combat**, located in districts **12** and **19**, suggest these quarters might offer better amenities or proximity compared to the others. These neighborhoods cater to tenants seeking cost-effective housing options, making them attractive for residents prioritizing affordability over prime locations. The recurring appearance of districts **19** and **20** reinforces their reputation as some of the most budget-friendly areas in Paris.
+\
+
+[Click here for more details](https://www.actual-immo.fr/quels-sont-les-quartiers-les-moins-chers-de-paris/)
+\
+\
+
+<p class="title-sub">Top 10 Districts with Lowest Rent Increase (2019-2024)</p>
+```{r T3, error=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Top 10 Districts with Lowest Rent Increase
+lowest_rent_increase <- data_clean %>%
+  filter(Year %in% c(2019, 2024)) %>%
+  group_by(District, Year) %>%
+  summarise(Average_Rent = round(mean(Reference_Rent, na.rm = TRUE), 2)) %>%
+  pivot_wider(names_from = Year, values_from = Average_Rent) %>%
+  mutate(Rent_Increase = round(`2024` - `2019`, 2)) %>%
+  arrange(Rent_Increase) %>% 
+  head(10) 
+
+kable(lowest_rent_increase, col.names = c("District", "Average Rent (2019)", "Average Rent (2024)", "Increase (€ / m²)")) %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = c("striped", "hover")) %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2") %>%
+  column_spec(4, extra_css = "text-align: center;")
+```
+\
+
+The table highlights the districts in Paris with the smallest rent increases over the five-year period from 2019 to 2024. District **19** experienced the lowest rent increase of just **1.28 €/m²**, rising from **21.06 €/m²** to **22.34 €/m²**, followed closely by district **20**, with an increase of **1.30 €/m²**. Other districts like **12**, **11**, and **13** also show modest increases, ranging from **1.40 €/m²** to **1.54 €/m²**, reflecting stable rent conditions compared to the city’s overall growth. At the higher end of this list, districts like **4**, **8**, and **5** demonstrate slightly larger increases, with rents rising between **1.67 €/m²** and **1.72 €/m²**, possibly due to higher demand or improving amenities in these areas. These findings suggest that districts with lower increases may offer more predictable and stable rental markets, appealing to tenants seeking long-term affordability and minimal fluctuations.
+\
+\
+
+<center> 
+<img src="https://static.wixstatic.com/media/694e40_2991f5c30038491da5eaf96fc006ffc9~mv2.jpg/v1/fill/w_1000,h_816,al_c,q_90,usm_0.66_1.00_0.01/694e40_2991f5c30038491da5eaf96fc006ffc9~mv2.jpg" width="600">
+</center>
+\
+\
+
+## <span style="color: black;">Conclusion</span>
+
+<p class="title-main">Conclusion</p>
+
+Analyzing rental prices in Paris reveals several interesting trends. 
+
+**First**, there is a progressive increase in average rents between 2019 and 2024, highlighting growing tension in the Parisian housing market, likely driven by increased demand and economic pressures. High-end neighborhoods such as *Invalides* and *Ecole-Militaire* showcase a concentration of premium properties, while more affordable areas, like the 19th and 20th districts, remain attractive options for budget-conscious tenants.
+
+**Additionally**, the analysis by rental type shows that **furnished apartments** consistently command higher rents than unfurnished ones, reflecting a preference for move-in-ready properties, particularly in central areas. Furthermore, the distribution of rents by the number of rooms indicates a **decline in rent per square meter for larger properties**, suggesting cost efficiency for tenants seeking more space.
+
+**Moreover**, variations based on construction periods highlight that properties built before 1946 tend to have higher maximum rents, likely due to their central locations and historical appeal. However, recently built properties offer competitive options, showcasing efforts in urban development and modernization in select neighborhoods.
+
+Finally, **interactive maps and graphical visualizations** enhance the understanding of the data by providing a geographic perspective, emphasizing the stark contrasts between different districts and neighborhoods. This project demonstrates how **data-driven approaches** enable precise insights into the dynamics of the Parisian rental market. Ultimately, these analyses could guide decision-makers, investors, and tenants in making strategic choices in the real estate sector.
+\
+\
+
+[Need a real estate agent : Click Here](https://www.stephaneplazaimmobilier.com/)
+\
+\
+\
+
+<center> 
+<img src="https://a.cdn-hotels.com/gdcs/production169/d86/6e1a6078-2b54-403b-b23e-63690ff86069.jpg" width="600">
+</center>
+\
+\
+
