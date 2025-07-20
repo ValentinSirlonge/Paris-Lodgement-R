@@ -35,3 +35,4 @@ This project analyzes cleaned data on rental housing in Paris to uncover trends 
    - Mapped geographic variations with `leaflet`.
 4. **Predictive Modeling**:
    - Built a regression model to predict reference rent based on housing features.
+
